@@ -275,5 +275,5 @@ app.use((err,req,res,next)=>{
   if(!err.status)console.error('Falha na operação:',err.code||err.name);
   res.status(err.status||503).json({error:err.status?err.message:'Serviço indisponível. Verifique a conexão com o banco e tente novamente.'});
 });
-const server=app.listen(Number(process.env.PORT||3100),process.env.HOST || '127.0.0.1',()=>console.log('GMVFinanceira disponível na porta '+(process.env.PORT||3100)));
+const server=app.listen(Number(process.env.PORT||3100),process.env.HOST || (process.env.WEBSITE_INSTANCE_ID ? '0.0.0.0' : '127.0.0.1'),()=>console.log('GMVFinanceira disponível na porta '+(process.env.PORT||3100)));
 process.on('SIGTERM',()=>server.close(()=>pool.end()));
