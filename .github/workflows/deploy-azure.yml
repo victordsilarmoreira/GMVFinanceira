@@ -1,0 +1,60 @@
+name: Implantar GMVFinanceira no Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gmvfinanceira-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validar configuração
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          test -n "$AZURE_WEBAPP_NAME" || { echo 'Configure a variável AZURE_WEBAPP_NAME no GitHub.'; exit 1; }
+          test -n "$PUBLISH_PROFILE" || { echo 'Configure o secret AZURE_WEBAPP_PUBLISH_PROFILE no GitHub.'; exit 1; }
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar testes
+        run: npm test
+
+      - name: Compilar interface
+        run: npm run build
+
+      - name: Preparar pacote de produção
+        run: |
+          mkdir deployment
+          cp package.json package-lock.json deployment/
+          cp -R server src dist deployment/
+          npm ci --omit=dev --prefix deployment
+          cd deployment
+          zip -q -r ../gmvfinanceira.zip .
+
+      - name: Publicar no Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: gmvfinanceira
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C37311946B30453585B68BBCDF2270A8 }}
+          package: gmvfinanceira.zip
